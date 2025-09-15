@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  video-downloader:
+    build: .
+    container_name: google-photos-downloader
+    environment:
+      - TELEGRAM_API_ID=${TELEGRAM_API_ID}
+      - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+    volumes:
+      - ./videos:/app/videos
+      - ./Dragon.txt:/app/Dragon.txt
+    restart: unless-stopped
+    
+    # Uncomment để chạy theo lịch (cần cron job bên ngoài)
+    # profiles: ["manual"]
