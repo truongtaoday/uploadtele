@@ -1,0 +1,97 @@
+name: Download Videos and Upload to Telegram
+
+on:
+  # Chạy theo lịch (UTC time)
+  schedule:
+    - cron: '0 2 * * *'  # Chạy lúc 2:00 UTC mỗi ngày
+  
+  # Cho phép chạy thủ công
+  workflow_dispatch:
+
+  # Chạy khi push code
+  push:
+    branches: [ main ]
+
+jobs:
+  download-and-upload:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          wget \
+          gnupg \
+          unzip \
+          curl
+    
+    - name: Install Google Chrome
+      run: |
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+        sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Create Dragon.txt file
+      run: |
+        cat > Dragon.txt << 'EOF'
+        Video 1
+        https://photos.google.com/share/example1
+        Video 2
+        https://photos.google.com/share/example2
+        EOF
+    
+    - name: Run video download and upload
+      env:
+        TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+        TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        python main.py
+    
+    - name: Upload logs if failed
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: error-logs
+        path: |
+          *.png
+          *.log
+        retention-days: 7
+    
+    - name: Display video info and file sizes
+      run: |
+        if [ -d "./videos" ]; then
+          echo "✅ Videos downloaded successfully:"
+          ls -lah ./videos/
+          echo ""
+          echo "📊 Total size of videos:"
+          du -sh ./videos/
+          echo ""
+          echo "🔍 Individual file sizes:"
+          find ./videos/ -type f -exec ls -lah {} \; | awk '{print $5 " - " $9}'
+        else
+          echo "❌ No videos directory found"
+        fi
+        
+        if [ -d "./large_files" ]; then
+          echo ""
+          echo "⚠️ Large files (>2GB) that couldn't be uploaded:"
+          ls -lah ./large_files/
+          du -sh ./large_files/
+        fi
